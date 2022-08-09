@@ -1,0 +1,49 @@
+{
+  "variables": {
+    "google_project_id": "{{env `GOOGLE_PROJECT_ID`}}",
+    "google_creds": "{{env `GOOGLE_APPLICATION_CREDENTIALS`}}"
+  },
+  "builders": [
+    {
+      "type": "googlecompute",
+      "account_file": "{{user `google_creds`}}",
+      "project_id": "{{user `google_project_id`}}",
+      "source_image_family": "centos-7",
+      "ssh_username": "centos-cloud",
+      "zone": "us-west1-b",
+      "disk_size": "40"
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "file",
+      "source": "./requirements.txt",
+      "destination": "/tmp/requirements.txt"
+    },
+    {
+      "type": "file",
+      "source": "./setup_bastion_script.sh",
+      "destination": "~/setup_bastion_script.sh"
+    },
+    {
+      "type": "file",
+      "source": "./motd.sh",
+      "destination": "/tmp/motd.sh"
+    },
+    { 
+      "type": "file",
+      "source": "./prometheus.sh",
+      "destination": "/tmp/prometheus.sh"
+    }, 
+    {
+      "type": "file",
+      "source": "./node-exporter.sh",
+      "destination": "/tmp/node-exporter.sh"
+    }, 
+    {
+      "type": "ansible",
+      "user": "centos-cloud",
+      "playbook_file": "./playbook.yml" 
+    }
+  ]
+}

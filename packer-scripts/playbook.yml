@@ -1,0 +1,179 @@
+---
+- name: bastion host provisioning 
+  become: true
+  become_method: sudo
+  hosts: default
+  tasks:
+  
+  - name: Set timezone to America/Chicago  
+    timezone:
+      name: America/Chicago    
+  
+  - name: Disabling the Selinux in the bastion host
+    become: true
+    selinux:
+      state: disabled
+      
+  - name: Install required packages into AMI 
+    package:
+      name: "{{ item }}"
+      state: present
+    loop:
+    - yum-utils
+    - bind-utils
+    - device-mapper-persistent-data 
+    - lvm2
+    - tree
+    - telnet
+    - epel-release
+    - ansible
+    - groovy 
+    - java-1.8.0-openjdk
+    - python-pip
+    - git
+    - jq
+    - wget
+    - unzip
+    - vim
+    - centos-release-scl
+    - scl-utils-build
+    - docker-compose 
+
+  - name: Check current docker-compose version
+    command: docker-compose --version  
+
+  - name: Add Docker repo
+    get_url:
+      url: https://download.docker.com/linux/centos/docker-ce.repo
+      dest: /etc/yum.repos.d/docer-ce.repo
+      mode: 0777
+    become: yes 
+
+  - name: Install Docker
+    package:
+      name: docker-ce-17.12.1.ce
+      state: latest
+    become: yes  
+
+  - name: Start Docker service
+    service:
+      name: docker
+      state: started
+      enabled: yes
+    become: yes  
+
+  - name: Install Kubectl 
+    get_url:
+      url: https://storage.googleapis.com/kubernetes-release/release/v1.13.0/bin/linux/amd64/kubectl
+      dest: /usr/bin
+      mode: +x    
+  
+  - name: Add Hashicorp repo
+    get_url:
+      url: https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+      dest: /etc/yum.repos.d/hashicorp.repo       
+    become: yes 
+
+  - name: Install Waypoint
+    package:
+      name: waypoint
+      state: latest 
+    become: yes 
+
+  - name: Install Vault
+    package:
+      name: vault
+      state: latest 
+    become: yes   
+
+  - name: Install Terraform
+    unarchive:
+      src: https://releases.hashicorp.com/terraform/0.11.15/terraform_0.11.15_linux_amd64.zip
+      dest: /usr/bin
+      mode: +x
+      remote_src: True    
+
+  - name: Install Istio 
+    unarchive:
+      src: https://github.com/istio/istio/releases/download/1.5.10/istioctl-1.5.10-linux.tar.gz
+      dest: /usr/bin/
+      remote_src: True   
+
+  - name: Install Trivy 
+    unarchive:
+      src: https://github.com/aquasecurity/trivy/releases/download/v0.22.0/trivy_0.22.0_Linux-64bit.tar.gz
+      dest: /usr/local/bin  
+      remote_src: True 
+              
+  - name: Install Python
+    shell: "sudo yum install python33 gcc python3 -y"
+
+  - name: Install Python3
+    shell: "sudo python3 -m pip install -r /tmp/requirements.txt"  
+
+  - name: Move  /tmp/motd.sh  /etc/profile.d/
+    shell: "sudo mv /tmp/motd.sh /etc/profile.d/"
+
+  - name: Enable Ipv4
+    shell: "sudo sysctl -w net.ipv4.ip_forward=1"  
+
+  - name: Add setup bastion script 
+    ansible.builtin.shell:
+      cmd:  bash setup_bastion_script.sh
+      chdir: ~
+        
+  - name: Install Helm package
+    ansible.builtin.shell: "{{ item }}"
+    loop: 
+    - "sudo wget https://get.helm.sh/helm-v3.3.2-linux-amd64.tar.gz"
+    - "sudo tar -xvf helm-v3.3.2-linux-amd64.tar.gz" 
+    - "sudo mv ./linux-amd64/helm /usr/local/bin/helm"
+
+  - name: Install Sonar-Scanner-CLI
+    ansible.builtin.shell: "{{ item }}"
+    loop:
+    - "sudo wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.6.2.2472-linux.zip"
+    - "sudo unzip sonar-scanner-cli-4.6.2.2472-linux.zip"
+    - "sudo mv sonar-scanner-4.6.2.2472-linux/ /opt/sonar-scanner"
+    - "sudo rm -rf sonar-scanner-cli-4.6.2.2472-linux.zip"  
+
+  - name: Install Hashicorp Packer
+    ansible.builtin.shell: "{{ item }}"
+    loop:
+    - "sudo wget https://releases.hashicorp.com/packer/1.5.1/packer_1.5.1_linux_amd64.zip -O /tmp/packer_1.5.1_linux_amd64.zip"
+    - "sudo unzip /tmp/packer_1.5.1_linux_amd64.zip"
+    - "sudo mv packer /bin"  
+  
+  - name: Installing Prometheus 
+    ansible.builtin.shell: "{{ item }}"
+    loop:
+    - "sudo bash /tmp/prometheus.sh"
+    - "sudo bash /tmp/node-exporter.sh"
+
+  - name: Install curl and tfswitch
+    ansible.builtin.shell: "{{ item }}"
+    loop:  
+    - "sudo yum install curl -y"
+    - "sudo curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/release/install.sh | bash"
+
+      
+
+
+
+  
+                                      
+
+  
+
+ 
+
+
+  
+
+  
+   
+  
+ 
+
+  
+ 

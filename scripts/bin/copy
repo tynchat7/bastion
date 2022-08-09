@@ -1,0 +1,103 @@
+#!/bin/bash
+red=`tput setaf 1`
+green=`tput setaf 2`
+yellow=`tput setaf 3`
+blue=`tput setaf 4`
+reset=`tput sgr0`
+
+#will get your username and assigned to the variable
+usernameBastion=$(whoami)
+
+#created variables to use in if statement
+OLD_BASTION_DNS_RESULT="$(dig +short old.bastion.fuchicorp.com @resolver1.opendns.com)"
+CURRENT_INSTANCE_IP="$(curl -s -H 'Metadata-Flavor: Google' http://metadata/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip)"
+
+#this if statement will let you know in which host you are, and will ask if you would like to proceed.
+if [ "$OLD_BASTION_RESULT" != "$CURRENT_INSTANCE_IP" ]; then
+ echo -e """${red}!!!WARNING!!! 
+ ${yellow}You are not in old bastion! 
+ You should run the scipt in old bastion!${reset}""" #three double quotations are for echoing each three lines
+ read -p "Do you wish to continue? (y/n) " RESP
+ if [ "$RESP" != "y" ]; then
+ echo -e "${red} Cancelled migrating and exiting script! ${reset}"
+ exit
+ fi
+fi
+
+
+PS3='Please enter your choice: '
+options=("${blue}Copy everything from this bastion to new one${reset}" "${blue}Copy all tfvars and fuchicorp-service-account.json files from this bastion host to new one${reset}" "${blue}Copy specific file from this bastion host to new one${reset}" "${blue}Quit${reset}")
+select opt in "${options[@]}"
+do
+    case $opt in
+        "${blue}Copy everything from this bastion to new one${reset}")
+            echo -e "${blue}You chose 1st option ${reset}"
+            
+            read -p "Do you wish to continue? (y/n) " RESP
+            if [ "$RESP" = "y" ]; then
+              echo -e "${green}Copying everything..${reset}"
+              rsync -rvh ~/* $usernameBastion@bastion.fuchicorp.com:~/
+              echo -e "${green}Copied everything successfully.${reset}"
+            else
+              echo -e "${red}Cancelled copy process${reset}"
+              break
+            fi
+            break
+            ;;
+
+        "${blue}Copy all tfvars and fuchicorp-service-account.json files from this bastion host to new one${reset}")
+            echo -e "${blue}You chose 2nd option${reset}"
+            read -p "Do you wish to continue? (y/n) " RESP
+            if [ "$RESP" = "y" ]; then
+              echo -e "${green} Listing all tfvars and fuchicorp-service-account.json files:${reset}"
+              find ~/ -iname "fuchicorp-service-account.json" 
+              FIND_RESULT="$(find ~/ -iname "*.tfvars")" #this variable created for forloop, so we could go over each file to copy.
+              echo -e "${green} $FIND_RESULT ${reset}"
+              echo -e "${green} Copying all tfvars and fuchicorp-service-account.json files..${reset}"
+              rsync -rvh  ~/cluster-infrastructure/kube-cluster/fuchicorp-service-account.json $usernameBastion@bastion.fuchicorp.com:~/
+              for file in $FIND_RESULT; do #this command will get find result, will go to each result and define the variable as file and copy all the files to the remote location
+                rsync -rvh "$file" $usernameBastion@bastion.fuchicorp.com:~/
+              done
+              echo -e "${green}Copied all tfvars and fuchicorp-service-account.json files from $HOME successfully.${reset}"
+            else
+              echo -e "${red}Cancelled copy process${reset}"
+              break
+            fi
+            break
+            ;;
+
+        "${blue}Copy specific file from this bastion host to new one${reset}")
+            echo -e "${blue}You chose 3rd option${reset}"
+            read -p "Do you wish to continue? (y/n) " RESP
+            if [ "$RESP" = "y" ]; then
+              read -p "Please provide a file name: " FILE
+              find ~/ -iname "$FILE"
+              read -p "Please copy and paste the full path of the file: " FULL_PATH_FILE
+              if [ -f "$FULL_PATH_FILE" ]; then
+                echo -e "${green}I am going to copy ${yellow}<$FULL_PATH_FILE>${green} to remote host!${reset}"
+                ## Here you will need to put command to copy a file
+                rsync -rvh "$FULL_PATH_FILE"  $usernameBastion@bastion.fuchicorp.com:~/
+              elif [ -d "$FULL_PATH_FILE" ]; then
+                echo -e "${red}You provide directory not a file${reset}"
+                break
+              fi
+
+              echo -e "${green}Copied ${yellow}<$FULL_PATH_FILE>${green} to remote hosts ${yellow}<$HOME>${green} successfully.${reset}"
+            else
+              echo -e "${red}Cancelled copy process${reset}"
+              break
+            fi
+            break
+            ;;
+
+        "${blue}Quit${reset}")
+            echo -e "${red} Cancelled the copy process and quitting${reset}"
+            echo "**********************************************"
+            echo -e "${blue} BYE BYE${reset}"
+            echo "**********************************************"
+            break
+            ;;
+        *) echo -e "${red}Please enter correct options $REPLY ${reset}";;
+    esac
+done
+
